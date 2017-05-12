@@ -1,0 +1,1866 @@
+<html>
+<head>
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+  <title>Your page title here :)</title>
+  <meta name"description" content="SunnyV1">
+  <meta name="author" content="SunnyBox">
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- FONT
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="stylesheet" href="css/normalize.css">
+  <link rel="stylesheet" href="css/skeleton.css">
+  <link rel="stylesheet" type="text/css" href="slick/slick.css"/>
+  <link rel="stylesheet" type="text/css" href="slick/slick-theme.css"/>
+
+</head>
+<body>
+
+<script type="text/javascript" src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+<script type="text/javascript" src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
+<script type="text/javascript" src="slick/slick.min.js"></script>
+<script>
+
+var USBdevices = new Array();
+var browseItems = new Array();
+var currentGridPageNb = 0;
+var imgToLoad = new Array();
+var imgSelected = new Array();
+var imgUnselected = new Array();
+var isKeepOrTrashEnabled = false;
+var isKeepTheBestEnabled = false;
+
+function isImgSelected(itemUrl)
+{
+	for(var i in imgSelected)
+	{
+		if(imgSelected[i][2] == itemUrl)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+function displayOnTvFromUpload(imgId) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=viewOnTV&imgId='+imgId);
+    xhr.send(null);
+}
+
+function displayOnTvFromBrowsing(localPath) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=viewOnTV&localPath='+localPath);
+    xhr.send(null);
+}
+
+function mountUSB() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/usbManager.php');
+    xhr.send(null);
+}
+
+function uploadItem(localPath) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/uploadmultiple.php?action=uploadFilesFromUsb&localPath='+localPath);
+    xhr.send(null);
+}
+
+function addBoxMenuItem()
+{
+	var div1Element = document.createElement('div');
+	div1Element.className = "deviceItem";
+	div1Element.innerHTML = "SunnyBox";
+	div1Element.onclick = function() { loadBoxItems(); };
+
+	var container1 = document.getElementById("navBar");
+    container1.appendChild(div1Element);
+}
+
+function loadNetworkDevices()
+{
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getKnownAvailableNetworkDevices');
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				buildDeviceItem(jsonObj[i].Name, jsonObj[i].HwId, jsonObj[i].MountPoint, jsonObj[i].FriendlyType);
+			}
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+
+function displayUSBDevices()
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	loadUsbDevices();
+}
+
+function loadUsbDevices()
+{
+	USBdevices = new Array();
+	
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getAvailableUsbDevices');
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				var USBObj = new Object();
+				USBObj["name"] = jsonObj[i].Name;
+				USBObj["path"] = jsonObj[i].MountPoint;
+				USBObj["HwId"] = jsonObj[i].HwId;
+				USBObj["FriendlyType"] = jsonObj[i].FriendlyType;
+				USBdevices.push(USBObj);
+				//addBrowseFolder(jsonObj[i].Name, jsonObj[i].MountPoint, jsonObj[i].HwId, jsonObj[i].FriendlyType);
+				//buildDeviceItem(jsonObj[i].Name, jsonObj[i].HwId, null, jsonObj[i].FriendlyType);
+			}
+			
+			for (var ii=0; ii < USBdevices.length; ii++)
+			{
+				addBrowseFolder(USBdevices[ii].name, USBdevices[ii].path, USBdevices[ii].HwId, USBdevices[ii].FriendlyType);
+			}
+			
+			updateBackupOptions();
+	    }
+
+	}, false);
+    xhr.send(null);
+    
+    
+}
+
+function buildDeviceItem(name, deviceHwId, mountPoint, type)
+{
+	var div1Element = document.createElement('div');
+	div1Element.className = "deviceItem";
+	div1Element.innerHTML = type+" "+name;
+	div1Element.onclick = function() {
+		switch(type){
+			case "Remote":
+				loadNetworkItems(deviceHwId, mountPoint);
+				break;
+			default:
+				scanUSBdevice(deviceHwId);
+				loadItems(deviceHwId, mountPoint);
+				break;
+		}
+		
+		};
+
+	var container1 = document.getElementById("gridItems");
+    container1.appendChild(div1Element);
+}
+
+function loadItems(deviceHwId, mountPoint)
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	browseItems = [];
+
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getUsbFoldersToScan&folderDepth=false&deviceId='+deviceHwId);
+    //xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getUsbFilesToBrowse&folderPath='+mountPoint);
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				loadItemsFromPath(jsonObj[i].localPath, jsonObj[i].deviceHwId);
+			}
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+
+function loadNetworkItems(deviceHwId, mountPoint)
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	browseItems = [];
+
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getRemoteFoldersToScan&folderDepth=false&deviceId='+deviceHwId);
+    //xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getUsbFilesToBrowse&folderPath='+mountPoint);
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				if(jsonObj[i].type == "folder")
+				{
+					addBrowseFolder(jsonObj[i].name, jsonObj[i].localPath, jsonObj[i].deviceHwId, "Remote");
+				}
+				else
+				{
+					var itemObj = new Object();
+					itemObj["type"] = "image";
+					itemObj["name"] = jsonObj[i].name;
+					itemObj["itemUrl"] = jsonObj[i].localPath;
+					itemObj["deviceHwId"] = jsonObj[i].deviceHwId;
+					itemObj["distantPath"] = jsonObj[i].distantPath;
+					browseItems.push(itemObj);
+					
+					//addBrowseItem(jsonObj[i].localPath, jsonObj[i].deviceHwId, jsonObj[i].name, jsonObj[i].distantPath, true);
+				}
+				
+			}
+			displayGridPage(0);
+			//displayNextImage();
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+
+function loadRemoteItemsFromPath(localPath, deviceHwId)
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	imgToLoad = [];
+	browseItems = [];
+    
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getRemoteFoldersToBrowse&deviceId='+deviceHwId+'&folderPath='+localPath);
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				if(jsonObj[i].type == "folder")
+				{
+					addBrowseFolder(jsonObj[i].name, jsonObj[i].localPath, jsonObj[i].deviceHwId, "Remote");
+				}
+				else
+				{
+					addBrowseItem(jsonObj[i].localPath, jsonObj[i].deviceHwId, jsonObj[i].name, jsonObj[i].distantPath, true);
+				}
+			}
+			displayNextImage();
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+
+function loadAllItemsFromPath(localPath, deviceHwId)
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	imgToLoad = [];
+	browseItems = [];
+    
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getUsbFoldersToBrowse&deviceId='+deviceHwId+'&folderPath='+localPath+'&isRecursive=true&isFileonly=true');
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	var needToAddAllFolder = false;
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				if(jsonObj[i].type == "folder")
+				{
+					needToAddAllFolder = true;
+					addBrowseFolder(jsonObj[i].name, jsonObj[i].localPath, jsonObj[i].deviceHwId, "USB");
+				}
+				else
+				{
+					var itemObj = new Object();
+					itemObj["type"] = "image";
+					itemObj["name"] = jsonObj[i].name;
+					itemObj["itemUrl"] = jsonObj[i].localPath;
+					itemObj["deviceHwId"] = jsonObj[i].deviceHwId;
+					itemObj["distantPath"] = jsonObj[i].distantPath;
+					browseItems.push(itemObj);
+					
+					//addBrowseItem(jsonObj[i].localPath, jsonObj[i].deviceHwId, jsonObj[i].name, jsonObj[i].distantPath, true);
+				}
+			}
+			if(needToAddAllFolder) {
+				addBrowseFolder("All", localPath, deviceHwId, "All");
+			}
+			addBrowseFolder("Back", localPath, deviceHwId, "Back");
+			addBrowseFolder("Upload", localPath, deviceHwId, "Upload");
+			
+			
+			displayGridPage(0);
+			//displayNextImage();
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+
+function loadItemsFromPath(localPath, deviceHwId)
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	imgToLoad = [];
+	browseItems = [];
+    
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getUsbFoldersToBrowse&deviceId='+deviceHwId+'&folderPath='+localPath);
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	var needToAddAllFolder = false;
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				if(jsonObj[i].type == "folder")
+				{
+					needToAddAllFolder = true;
+					addBrowseFolder(jsonObj[i].name, jsonObj[i].localPath, jsonObj[i].deviceHwId, "USB");
+				}
+				else
+				{
+					addBrowseItem(jsonObj[i].localPath, jsonObj[i].deviceHwId, jsonObj[i].name, jsonObj[i].distantPath, true);
+				}
+			}
+			if(needToAddAllFolder) {
+				addBrowseFolder("All", localPath, deviceHwId, "All");
+			}
+			addBrowseFolder("Back", localPath, deviceHwId, "Back");
+			addBrowseFolder("Upload", localPath, deviceHwId, "Upload");
+			displayNextImage();
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+
+function loadBoxItems()
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	browseItems = [];
+	
+	var xhr = new XMLHttpRequest();
+    //xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getUsbFoldersToBrowse&deviceId=&folderPath=/var/www/ressources/boxUserStorage/backup/');
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getImagesByStorage&deviceId=0&noDuplicates=true');
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addUploadItem(jsonObj[i].Id, jsonObj[i].ImageUrl, jsonObj[i].ThumbUrl);
+			}
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+
+
+function addUploadItem(itemId, imgUrl, thumbUrl)
+{
+	var divElement = document.createElement('div');
+	divElement.className = "deviceItem";
+	
+	var imgElement = document.createElement('img');
+	imgElement.src = thumbUrl;
+	
+	var brElement = document.createElement('BR');
+	
+	var aElement = document.createElement('a');
+	var durl = imgUrl.replace("/var/www", "http://sunnyv1.local");
+	aElement.href = durl;
+	var t = document.createTextNode("télécharger");
+	aElement.appendChild(t);
+	
+	var formElement = document.createElement('form');
+	var inputElement = document.createElement('input');
+	inputElement.type = "button";
+	inputElement.value = "TV";
+	inputElement.onclick = function() { displayOnTvFromUpload(itemId); };
+
+	divElement.appendChild(imgElement);
+	divElement.appendChild(brElement);
+	divElement.appendChild(aElement);
+	formElement.appendChild(inputElement);
+	divElement.appendChild(formElement);
+
+	var container = document.getElementById("gridItems");
+    container.appendChild(divElement);
+}
+
+function displayGridPage(pageNb)
+{
+	currentGridPageNb = pageNb;
+	
+	for(var i=(pageNb*10); i<((pageNb*10)+10); i++)
+	{
+		addBrowseItem(browseItems[i].itemUrl, browseItems[i].deviceHwId, browseItems[i].name, browseItems[i].distantPath, browseItems[i].checkIfSelected);
+	}
+	if(browseItems.length > ((pageNb*10)+10))
+	{
+		addBrowseFolder("More", "", "", "Next");
+	}
+	else if(pageNb > 0)
+	{
+		addPrevItem();
+	}
+	
+	displayNextImage();
+}
+
+function addNextItem()
+{
+	
+}
+
+function displayNextGridPage()
+{
+	displayGridPage(currentGridPageNb+1);
+}
+
+function displayPreviousGridPage()
+{
+	
+}
+
+function createGridPage(elements)
+{
+	
+}
+
+function addBrowseItem(itemUrl, deviceHwId, name, distantPath, checkIfSelected)
+{	
+	var itemObj = new Object();
+	itemObj["type"] = "image";
+	itemObj["name"] = name;
+	itemObj["itemUrl"] = itemUrl;
+	itemObj["deviceHwId"] = deviceHwId;
+	itemObj["distantPath"] = distantPath;
+	browseItems.push(itemObj);
+	
+	var fileElement = document.createElement('div');
+	fileElement.id = distantPath;
+	fileElement.className = "browseItem";
+	
+	var imgElement = document.createElement('img');
+	imgElement.id = "img-"+distantPath;
+	imgElement.className = "fileImg";
+	imgElement.onload = function() {displayNextImage() };
+	imgElement.onerror = function() {displayNextImage() };
+	imgElement.onclick = function() { 
+		
+		//window.open(distantPath,"_self");
+		window.open(distantPath,"_blank");
+		//TO DO display in <img> with fullscreen button
+		/*
+		if(document.getElementById("gridItems").className == "grid")
+		{
+			document.getElementById("gridItems").className = "single-item";
+			$(".single-item").slick();
+		}
+		else
+		{
+			//$(".single-item").unslick();
+			//document.getElementById("gridItems").className = "grid" ;
+		}
+		*/
+	}
+
+	imgToLoad.push([deviceHwId, itemUrl, imgElement]);
+	
+	var contentElement = document.createElement('div');
+	contentElement.id = "content-"+distantPath;
+	contentElement.className = "fileContent";
+	contentElement.innerHTML = name;
+	//contentElement.onclick = function() { displayImage(deviceHwId, itemUrl, imgElement); };
+	
+	var toolsDiv = document.createElement('div');
+	toolsDiv.className = "fileToolsHidden";
+	toolsDiv.innerHTML = "Tools";
+	
+	var backupElement = document.createElement('div');
+	backupElement.innerHTML = "Voir";
+	backupElement.onclick = function() { window.open(distantPath); };
+
+	var imageButtons = document.createElement('div');
+	imageButtons.className = "fileButton";
+	imageButtons.innerHTML = "";
+	/*toolsButton.onclick = function() {
+		if(toolsDiv.className == "fileToolsHidden")
+		{
+			toolsDiv.className = "fileTools";
+		}
+		else
+		{
+			toolsDiv.className = "fileToolsHidden";
+		}
+	};*/
+	
+	var selectButton = document.createElement('div');
+	selectButton.id = "select-"+distantPath;
+	if(checkIfSelected == true && isImgSelected(itemUrl))
+	{
+		selectButton.className = "selectButtonChecked";
+	}
+	else
+	{
+		selectButton.className = "selectButtonUnchecked";
+	}
+	selectButton.innerHTML = " ";
+	selectButton.onclick = function() {
+		if(selectButton.className == "selectButtonChecked")
+		{
+			selectButton.className = "selectButtonUnchecked";
+			for (var i in imgSelected)
+			{
+				if(imgSelected[i][0] == distantPath)
+				{
+					if(isKeepOrTrashEnabled == true)
+					{
+						imgUnselected.push(imgSelected[i]);
+					}
+					imgSelected.splice(i,1)
+				}
+			}
+		}
+		else
+		{
+			selectButton.className = "selectButtonChecked";
+			imgSelected.push([distantPath, deviceHwId, itemUrl, name]);
+			
+			if(imgUnselected[i][0] == distantPath)
+			{
+				imgUnselected.splice(i,1)
+			}
+		}
+		
+		//alert(imgSelected.length);
+		
+		if(imgSelected.length > 0)
+		{
+			var saveBt = document.getElementById("saveButton");
+			saveBt.className = "toolButton";
+		}
+		else
+		{
+			var saveBt = document.getElementById("saveButton");
+			saveBt.className = "toolButtonHidden";
+		}
+		
+		};
+
+	fileElement.appendChild(contentElement);
+	contentElement.appendChild(imgElement);
+	fileElement.appendChild(toolsDiv);
+	fileElement.appendChild(imageButtons);
+	imageButtons.appendChild(selectButton);
+
+	var container = document.getElementById("gridItems");
+    container.appendChild(fileElement);
+}
+
+function displaySelectedItems()
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	for (var i=0; i< imgSelected.length; i++)
+	{
+		addBrowseItem(imgSelected[i][2], imgSelected[i][1], imgSelected[i][3], imgSelected[i][0], true);
+	}
+	displayNextImage();
+}
+
+function displayImage(deviceHwId, itemUrl, imgElement)
+{
+	var xhr = new XMLHttpRequest();
+    //xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getSmartUsbImage&deviceHwId='+deviceHwId+'&localPath='+itemUrl+'&makeThumb=true');
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getUsbImg&usbThumb='+itemUrl);
+    xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        //alert(xhr.responseText);
+	        imgElement.src = xhr.responseText;
+	    }
+	}, false);
+    xhr.send(null);
+}
+
+function displayNextImage()
+{
+	var imgElement = imgToLoad.shift();
+	
+	if(imgElement)
+	{
+		var xhr = new XMLHttpRequest();
+	    //xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getSmartUsbImage&deviceHwId='+imgElement[0]+'&localPath='+imgElement[1]+'&makeThumb=true');
+	    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getUsbImg&usbThumb='+imgElement[1]);
+	    xhr.addEventListener('readystatechange', function() {
+		    if (xhr.readyState == 4 && xhr.status == 200)
+		    {
+		        //alert(xhr.responseText);
+		        if(!isKeepTheBestEnabled)
+		        {
+		        	imgElement[2].src = xhr.responseText;
+		        }
+		    }
+		}, false);
+	    xhr.send(null);
+	}
+	else
+	{
+		
+	}
+	
+}
+
+function enableKOTMode(enabled)
+{
+	isKeepOrTrashEnabled = enabled;
+	
+	if(enabled)
+	{
+		
+	}
+	else
+	{
+		for(var i=0; i< imgUnselected.length; i++)
+		{
+			imgSelected.push(imgUnselected[i]);
+			imgUnselected.splice(i,1);
+		}
+	}
+}
+
+function enableKTBMode(enabled)
+{
+	isKeepTheBestEnabled = enabled;
+	//imgToLoad = [];
+	
+	if(enabled)
+	{
+		for(var i=0; i< imgSelected.length; i++)
+		{
+			var divPath = imgSelected[i][0];
+			document.getElementById(divPath).className = "browseItemKTB";
+			var divPath = "content-"+imgSelected[i][0];
+			document.getElementById(divPath).className = "fileContentKTB";
+			var imgDivPath = "img-"+imgSelected[i][0];
+			document.getElementById(imgDivPath).className = "fileImgKTB";
+			document.getElementById(imgDivPath).src = imgSelected[i][0] ;
+		}
+	}
+	else
+	{
+		for(var i=0; i< imgUnselected.length; i++)
+		{
+			var divPath = imgSeimgUnselectedlected[i][0];
+			document.getElementById(divPath).className = "browseItem";			
+			var divPath = "content-"+imgSeimgUnselectedlected[i][0];
+			document.getElementById(divPath).className = "fileContent";
+			var imgDivPath = "img-"+imgUnselected[i][0];
+			document.getElementById(imgDivPath).className = "fileImg";
+		}
+	}
+}
+
+function setToolbarMode(mode)
+{
+	var toolbar = document.getElementById("tools");
+	while (toolbar.hasChildNodes()) {  
+    toolbar.removeChild(toolbar.firstChild);
+	}
+	
+	switch(mode){
+		case "general":
+		
+			enableKOTMode(false);
+			enableKTBMode(false);
+			
+			var saveBt = document.createElement('div');
+			saveBt.id = "saveButton";
+			saveBt.className = "toolButton";
+			saveBt.innerHTML = "Backup";
+			saveBt.onclick = function() {
+					setToolbarMode("backup");
+					displaySelectedItems();
+				};
+	    	toolbar.appendChild(saveBt);
+	    	
+	    	var trashBt = document.createElement('div');
+			trashBt.id = "trashButton";
+			trashBt.className = "toolButton";
+			trashBt.innerHTML = "Trash";
+			trashBt.onclick = function() {
+					setToolbarMode("trash");
+					displaySelectedItems();
+				};
+	    	toolbar.appendChild(trashBt);
+	    	
+	    	var KOTBt = document.createElement('div');
+			KOTBt.id = "KOTButton";
+			KOTBt.className = "toolButton";
+			KOTBt.innerHTML = "KeepOrTrash";
+			KOTBt.onclick = function() {
+					setToolbarMode("KOT");
+					displaySelectedItems();
+				};
+	    	toolbar.appendChild(KOTBt);
+	    	
+	    	var KTBBt = document.createElement('div');
+			KTBBt.id = "KTBButton";
+			KTBBt.className = "toolButton";
+			KTBBt.innerHTML = "KeepTheBest";
+			KTBBt.onclick = function() {
+					setToolbarMode("KTB");
+					displaySelectedItems();
+					enableKTBMode(true);
+				};
+	    	toolbar.appendChild(KTBBt);
+	    	
+	    	var selectBt = document.createElement('div');
+			selectBt.id = "selectButton";
+			selectBt.className = "toolButton";
+			selectBt.innerHTML = "Select All";
+			selectBt.onclick = function() {
+					selectAll();
+				};
+	    	toolbar.appendChild(selectBt);
+	    	
+	    	var unselectBt = document.createElement('div');
+			unselectBt.id = "unselectButton";
+			unselectBt.className = "toolButton";
+			unselectBt.innerHTML = "Unselect All";
+			unselectBt.onclick = function() {
+					unselectAll();
+				};
+	    	toolbar.appendChild(unselectBt);
+	    	
+	    	var viewBt = document.createElement('div');
+			viewBt.id = "viewButton";
+			viewBt.className = "toolButton";
+			viewBt.innerHTML = "View all selected";
+			viewBt.onclick = function() {
+				setToolbarMode("viewSelection");
+				displaySelectedItems();
+				};
+	    	toolbar.appendChild(viewBt);
+			
+			break;
+		case "KOT":
+			
+			enableKOTMode(true);
+			
+			var keepBt = document.createElement('div');
+			keepBt.id = "kotKeepButton";
+			keepBt.className = "toolButton";
+			keepBt.innerHTML = "Keep";
+			keepBt.onclick = function() {
+				deleteFiles(imgUnselected);
+				};
+	    	toolbar.appendChild(keepBt);
+	    	
+	    	var trashBt = document.createElement('div');
+			trashBt.id = "kotTrashButton";
+			trashBt.className = "toolButton";
+			trashBt.innerHTML = "Trash";
+			trashBt.onclick = function() {
+				deleteFiles(imgSelected);
+				};
+	    	toolbar.appendChild(trashBt);
+	    	
+	    	var selectBt = document.createElement('div');
+			selectBt.id = "kotSelectButton";
+			selectBt.className = "toolButton";
+			selectBt.innerHTML = "Select All";
+			selectBt.onclick = function() {
+					selectAll();
+				};
+	    	toolbar.appendChild(selectBt);
+	    	
+	    	var unselectBt = document.createElement('div');
+			unselectBt.id = "kotUnselectButton";
+			unselectBt.className = "toolButton";
+			unselectBt.innerHTML = "Unselect All";
+			unselectBt.onclick = function() {
+					unselectAll();
+				};
+	    	toolbar.appendChild(unselectBt);
+	    	
+	    	var closeBt = document.createElement('div');
+			closeBt.id = "kotcloseButton";
+			closeBt.className = "toolButton";
+			closeBt.innerHTML = "Close";
+			closeBt.onclick = function() {
+					setToolbarMode("general");
+				};
+	    	toolbar.appendChild(closeBt);
+	    	
+			break;
+		case "KTB":
+			
+			var OnetooneBt = document.createElement('div');
+			OnetooneBt.id = "ktbOnetooneButton";
+			OnetooneBt.className = "toolButton";
+			OnetooneBt.innerHTML = "1to1";
+			OnetooneBt.onclick = function() {
+					
+				};
+	    	toolbar.appendChild(OnetooneBt);
+	    	
+	    	var FourxBt = document.createElement('div');
+			FourxBt.id = "ktbFourxButton";
+			FourxBt.className = "toolButton";
+			FourxBt.innerHTML = "4x";
+			FourxBt.onclick = function() {
+					
+				};
+	    	toolbar.appendChild(FourxBt);
+			
+			var closeBt = document.createElement('div');
+			closeBt.id = "ktbCloseButton";
+			closeBt.className = "toolButton";
+			closeBt.innerHTML = "Close";
+			closeBt.onclick = function() {
+					setToolbarMode("general");
+				};
+	    	toolbar.appendChild(closeBt);
+			break;
+			
+		case "backup":
+		
+			enableKOTMode(false);
+			
+			var selectElement = document.createElement('select');
+			selectElement.id = "backupDevicesSelect";
+			var c = document.createElement("option");
+			c.text = "choose drive";
+			selectElement.options.add(c, 1);
+			for (var i=0; i < USBdevices.length; i++)
+			{
+				var c = document.createElement("option");
+				c.text = USBdevices[i].name;
+				c.value = USBdevices[i].path;
+				c.id = USBdevices[i].HwId;
+				selectElement.options.add(c, 1);
+			}
+	    	toolbar.appendChild(selectElement);
+	    	
+	    	var backupBt = document.createElement('div');
+			backupBt.id = "backupBackupButton";
+			backupBt.className = "toolButton";
+			backupBt.innerHTML = "OK";
+			backupBt.onclick = function() {
+					var devicesSelect = document.getElementById("backupDevicesSelect");
+					var toSelectDevice = devicesSelect.options[devicesSelect.selectedIndex].id;
+					backupFile(toSelectDevice, imgSelected);
+				};
+	    	toolbar.appendChild(backupBt);
+	    	
+	    	var closeBt = document.createElement('div');
+			closeBt.id = "backupCloseButton";
+			closeBt.className = "toolButton";
+			closeBt.innerHTML = "Cancel";
+			closeBt.onclick = function() {
+					setToolbarMode("general");
+				};
+	    	toolbar.appendChild(closeBt);
+			break;
+			
+		case "trash":
+			
+			enableKOTMode(false);
+			
+			var confirmBt = document.createElement('div');
+			confirmBt.id = "backupCloseButton";
+			confirmBt.className = "toolButton";
+			confirmBt.innerHTML = "Confirm";
+			confirmBt.onclick = function() {
+					deleteFiles(imgSelected);
+				};
+	    	toolbar.appendChild(confirmBt);
+	    	
+			var closeBt = document.createElement('div');
+			closeBt.id = "backupCloseButton";
+			closeBt.className = "toolButton";
+			closeBt.innerHTML = "Cancel";
+			closeBt.onclick = function() {
+					setToolbarMode("general");
+				};
+	    	toolbar.appendChild(closeBt);
+			break;
+			
+		case "viewSelection":
+			
+			enableKOTMode(false);
+			
+			var viewAllBt = document.createElement('div');
+			viewAllBt.id = "viewAllBt";
+			viewAllBt.className = "toolButton";
+			viewAllBt.innerHTML = "Download";
+			viewAllBt.onclick = function() {
+					downloadFiles(imgSelected);
+				};
+	    	toolbar.appendChild(viewAllBt);
+	    	
+	    	var addTagsBt = document.createElement('div');
+			addTagsBt.id = "addTags";
+			addTagsBt.className = "toolButton";
+			addTagsBt.innerHTML = "Add Tags";
+			addTagsBt.onclick = function() {
+					setToolbarMode("addTags");
+				};
+	    	toolbar.appendChild(addTagsBt);
+	    	
+			var closeBt = document.createElement('div');
+			closeBt.id = "backupCloseButton";
+			closeBt.className = "toolButton";
+			closeBt.innerHTML = "Cancel";
+			closeBt.onclick = function() {
+					setToolbarMode("general");
+				};
+	    	toolbar.appendChild(closeBt);
+			break;
+		
+		case "addTags":
+			
+			enableKOTMode(false);
+			
+			var tagInput = document.createElement('input');
+			tagInput.id = "tagInput";
+			tagInput.type = "text";
+			//tagInput.className = "toolButton";
+	    	toolbar.appendChild(tagInput);
+	    	
+	    	var OKBt = document.createElement('div');
+			OKBt.id = "OKBt";
+			OKBt.className = "toolButton";
+			OKBt.innerHTML = "OK";
+			OKBt.onclick = function() {
+					setTags(imgSelected);
+				};
+	    	toolbar.appendChild(OKBt);
+	    	
+			var closeBt = document.createElement('div');
+			closeBt.id = "backupCloseButton";
+			closeBt.className = "toolButton";
+			closeBt.innerHTML = "Cancel";
+			closeBt.onclick = function() {
+					setToolbarMode("general");
+				};
+	    	toolbar.appendChild(closeBt);
+			break;
+	}
+}
+
+function setTags(filesArr)
+{
+	var imgElement = filesArr.shift();
+	//alert("IMG ELEMENT"+imgElement);
+	if(imgElement)
+	{
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.open('POST', 'http://sunnyv1.local/updateImage.php');
+		xmlhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+		xmlhttp.send("image={\"URL\":\""+imgElement[2]+"\",\"Tags\":\""+document.getElementById("tagInput").value+"\"}&gps="); //document.getElementById("tagInput").text
+		
+		xmlhttp.addEventListener('readystatechange', function() {
+		    if (xmlhttp.readyState == 4 && xmlhttp.status == 200)
+		    {
+		    	//alert($filesArr.length);
+		    	
+		    }
+	    
+	    setTags(filesArr);
+		}, false);
+	}
+	//tagInput
+}
+
+function initToolbar()
+{
+	setToolbarMode("general");
+}
+
+function goBackHome()
+{
+	
+}
+
+function initNavbar()
+{
+	var navbar = document.getElementById("navBar");
+	
+	var foldersBt = document.createElement('div');
+	foldersBt.id = "navFoldersButton";
+	foldersBt.className = "navBarButton";
+	foldersBt.innerHTML = "Folders";
+	foldersBt.onclick = function() {
+			displayUSBDevices();
+		};
+	navbar.appendChild(foldersBt);
+	
+	var byTodayBt = document.createElement('div');
+	byTodayBt.id = "navFoldersButton";
+	byTodayBt.className = "navBarButton";
+	byTodayBt.innerHTML = "Today";
+	byTodayBt.onclick = function() {
+			displayTodayImages();
+		};
+	navbar.appendChild(byTodayBt);
+	
+	var byYearBt = document.createElement('div');
+	byYearBt.id = "navFoldersButton";
+	byYearBt.className = "navBarButton";
+	byYearBt.innerHTML = "Years";
+	byYearBt.onclick = function() {
+			displayYears();
+		};
+	navbar.appendChild(byYearBt);
+	
+	var byTagsBt = document.createElement('div');
+	byTagsBt.id = "navTagsButton";
+	byTagsBt.className = "navBarButton";
+	byTagsBt.innerHTML = "Tags";
+	byTagsBt.onclick = function() {
+			displayTags();
+		};
+	navbar.appendChild(byTagsBt);
+	
+	var byPlacesBt = document.createElement('div');
+	byPlacesBt.id = "navPLacesButton";
+	byPlacesBt.className = "navBarButton";
+	byPlacesBt.innerHTML = "Places";
+	byPlacesBt.onclick = function() {
+			displayPlaces();
+		};
+	navbar.appendChild(byPlacesBt);
+	
+	var seqBt = document.createElement('div');
+	seqBt.id = "navSeqButton";
+	seqBt.className = "navBarButton";
+	seqBt.innerHTML = "Series";
+	seqBt.onclick = function() {
+			displaySequences();
+		};
+	navbar.appendChild(seqBt);
+	
+	var searchBt = document.createElement('div');
+	searchBt.id = "navSearchButton";
+	searchBt.className = "navBarButton";
+	searchBt.innerHTML = "Search";
+	searchBt.onclick = function() {
+			
+		};
+	navbar.appendChild(searchBt);
+}
+
+function displayTodayImages()
+{	
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getTodayImages');
+    xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	//"ThumbUrl":"http://sunnyv1.local/ressources/thumbs/2/2032.jpg","Title":"2012","DeviceId":"543","ImageUrl":"/_nicolas/images/maurice/DSC00070.JPG","Count":"102"
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addBrowseItem(jsonObj[i].localPath, "", jsonObj[i].Name, jsonObj[i].remoteURL, true);
+			}
+			displayNextImage();
+	    }
+	}, false);
+    xhr.send(null);
+}
+
+function displayTags()
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getTags&params=online');
+    xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	//"ThumbUrl":"http://sunnyv1.local/ressources/thumbs/2/2032.jpg","Title":"2012","DeviceId":"543","ImageUrl":"/_nicolas/images/maurice/DSC00070.JPG","Count":"102"
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addSmartBrowseItem("tag",null, jsonObj[i].Name, null, null, null, jsonObj[i].Value);
+			}
+			displayNextImage();
+	    }
+	    
+	}, false);
+    xhr.send(null);
+}
+
+function displayYears()
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getYears&params=online');
+    xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	//"ThumbUrl":"http://sunnyv1.local/ressources/thumbs/2/2032.jpg","Title":"2012","DeviceId":"543","ImageUrl":"/_nicolas/images/maurice/DSC00070.JPG","Count":"102"
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addSmartBrowseItem("year",jsonObj[i].ThumbUrl, jsonObj[i].Title, jsonObj[i].DeviceId, jsonObj[i].ImageUrl, jsonObj[i].Count);
+			}
+			displayNextImage();
+	    }
+	    
+	}, false);
+    xhr.send(null);
+}
+
+function displayMonths(year)
+{
+	/*var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}*/
+	
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getMonths&year='+year+'&params=online');
+    xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	//"ThumbUrl":"http://sunnyv1.local/ressources/thumbs/2/2032.jpg","Title":"2012","DeviceId":"543","ImageUrl":"/_nicolas/images/maurice/DSC00070.JPG","Count":"102"
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addSmartBrowseItem("month",jsonObj[i].ThumbUrl, jsonObj[i].Title, jsonObj[i].DeviceId, jsonObj[i].ImageUrl, jsonObj[i].Count);
+			}
+			displayNextImage();
+	    }
+	}, false);
+    xhr.send(null);
+}
+
+function displayPlaces()
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getLocations');
+    xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	//"ThumbUrl":"http://sunnyv1.local/ressources/thumbs/2/2032.jpg","Title":"2012","DeviceId":"543","ImageUrl":"/_nicolas/images/maurice/DSC00070.JPG","Count":"102"
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addSmartBrowseItem("places",jsonObj[i].ThumbUrl, jsonObj[i].Id, jsonObj[i].DeviceId, jsonObj[i].ImageUrl, jsonObj[i].Title);
+			}
+			//displayNextImage();
+	    }
+	}, false);
+    xhr.send(null);
+}
+
+function displaySequences()
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	var xhr = new XMLHttpRequest();
+    //xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getSequences&imageId=-1');
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getNearDateDuplicates&imageId=-1');
+    xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	//"ThumbUrl":"http://sunnyv1.local/ressources/thumbs/2/2032.jpg","Title":"2012","DeviceId":"543","ImageUrl":"/_nicolas/images/maurice/DSC00070.JPG","Count":"102"
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addSmartBrowseItem("sequences",jsonObj[i].ThumbUrl, jsonObj[i].Id, jsonObj[i].DeviceId, jsonObj[i].ImageUrl, jsonObj[i].Count);
+			}
+			displayNextImage();
+	    }
+	}, false);
+    xhr.send(null);
+}
+
+function displayDevices()
+{
+	for (var i=0; i < USBdevices.length; i++)
+	{
+		//alert(USBdevices[i].path);
+		var deviceDiv = document.createElement('div');
+		deviceDiv.id = USBdevices[i].HwId
+		deviceDiv.className = "deviceItem";
+		deviceDiv.innerHTML = USBdevices[i].name;
+		deviceDiv.onclick = function() {
+			backupFile(this.id, imgSelected);
+			document.getElementById("usbDevices").className = "usbDevicesHidden";
+			//unselectAll();
+			};
+
+		var devicesBar = document.getElementById("usbDevices");
+    	devicesBar.appendChild(deviceDiv);
+	}
+	
+	
+	
+	//USBObj["name"]
+	//USBObj["path"]
+	//USBObj["HwId"]
+	//USBObj["FriendlyType"]
+}
+
+function backupDevice(fromDeviceId, toDeviceId)
+{
+	var xhr = new XMLHttpRequest();
+	xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=backupDevice&deviceId='+fromDeviceId+'&noDuplicates=true&targetDeviceId='+toDeviceId+'&onlyNewFiles=true');
+    xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	//alert($filesArr.length);
+	    	
+	    }
+	}, false);
+    xhr.send(null);
+}
+
+function selectAll()
+{
+	for (var i in browseItems)
+	{
+		if(browseItems[i].type == "image")
+		{
+			document.getElementById("select-"+browseItems[i].distantPath).className = "selectButtonChecked";
+			imgSelected.push([browseItems[i].distantPath, browseItems[i].deviceHwId, browseItems[i].itemUrl, browseItems[i].name]);
+		}
+	}
+}
+
+function unselectAll()
+{
+	//alert(imgSelected.length);
+	for (var i in imgSelected)
+	{
+		var divPath = "select-"+imgSelected[i][0];
+		document.getElementById(divPath).className = "selectButtonUnchecked";
+	}
+	
+	imgSelected = new Array();
+}
+
+function updateBackupOptions()
+{
+	var selectElement = document.getElementById("selectBackup");
+	var i;
+    for(i = selectElement.options.length - 1 ; i >= 1 ; i--)
+    {
+        selectElement.remove(i);
+    }
+	for (var i=0; i < USBdevices.length; i++)
+	{
+		var c = document.createElement("option");
+		c.text = USBdevices[i].name;
+		c.value = USBdevices[i].path;
+		c.id = USBdevices[i].HwId;
+		selectElement.options.add(c, 1);
+	}
+}
+
+function deleteFiles(filesArr)
+{
+	var imgElement = filesArr.shift();
+	//alert("IMG ELEMENT"+imgElement);
+	if(imgElement)
+	{
+		var xhr = new XMLHttpRequest();
+	    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=deleteFile&FILEURL='+imgElement[2]);
+	    xhr.addEventListener('readystatechange', function() {
+		    if (xhr.readyState == 4 && xhr.status == 200)
+		    {
+		    	//alert($filesArr.length);
+		    	var divPath = imgElement[0];
+				var element = document.getElementById(divPath);
+				element.parentNode.removeChild(element);
+				
+				/*if(imgSelected.length > 0)
+				{
+					var saveBt = document.getElementById("saveButton");
+					saveBt.className = "toolButton";
+				}
+				else
+				{
+					var saveBt = document.getElementById("saveButton");
+					saveBt.className = "toolButtonHidden";
+				}*/
+				if(filesArr.length > 0)
+		        {
+		        	deleteFiles(filesArr);
+		        }
+		    }
+		}, false);
+	    xhr.send(null);
+	}
+	
+}
+
+function backupFile(toSelectDevice, filesArr)
+{
+	var imgElement = filesArr.shift();
+	//alert("IMG ELEMENT"+imgElement);
+	if(imgElement)
+	{
+		var xhr = new XMLHttpRequest();
+	    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=backupFile&FILEURL='+imgElement[2]+'&FROMHWID='+imgElement[1]+'&TOHWID='+toSelectDevice);
+	    xhr.addEventListener('readystatechange', function() {
+		    if (xhr.readyState == 4 && xhr.status == 200)
+		    {
+		    	//alert($filesArr.length);
+		    	var divPath = "select-"+imgElement[0];
+				document.getElementById(divPath).className = "selectButtonUnchecked";
+				
+				if(imgSelected.length > 0)
+				{
+					var saveBt = document.getElementById("saveButton");
+					saveBt.className = "toolButton";
+				}
+				else
+				{
+					var saveBt = document.getElementById("saveButton");
+					saveBt.className = "toolButtonHidden";
+				}
+		
+		        backupFile(toSelectDevice, filesArr);
+		    }
+		}, false);
+	    xhr.send(null);
+	}
+	
+}
+
+function backupFolder($fromFolder, $fromDeviceID, $toDeviceID)
+{
+	//var fromFolder = $fromFolder;
+	//var toFolder = document.getElementById($toSelectID);
+	//toFolder = toFolder.options[toFolder.selectedIndex].value;
+	
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=backupFolder&folderPath='+$fromFolder+'&fromDeviceHwId='+$fromDeviceID+'&toDeviceHwId='+$toDeviceID);
+    xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        //alert(xhr.responseText);
+	    }
+	}, false);
+    xhr.send(null);
+}
+
+function addBrowseFolder(itemName, itemUrl, deviceHwId, type)
+{
+	var folderObj = new Object();
+	folderObj["type"] = "folder";
+	folderObj["name"] = itemName;
+	folderObj["itemUrl"] = itemUrl;
+	folderObj["HwId"] = deviceHwId;
+	browseItems.push(folderObj);
+	
+	var folderElement = document.createElement('div');
+	folderElement.className = "browseItem";
+
+	var contentElement = document.createElement('div');
+	contentElement.className = "folderContent";
+	contentElement.innerHTML = itemName;
+	contentElement.onclick = function() { 
+		switch(type) {
+			case "USB":
+				loadItemsFromPath(itemUrl, deviceHwId);
+				break;
+			case "Remote":
+				loadRemoteItemsFromPath(itemUrl, deviceHwId);
+			break;
+			case "All":
+				loadAllItemsFromPath(itemUrl, deviceHwId);
+			break;
+			case "Upload":
+				contentElement.id = "uploadForm";
+				uploadFiles(itemUrl, deviceHwId);
+			break;
+			case "Back":
+				var parentFolder = itemUrl.substring(0, itemUrl.length -1);
+				parentFolder = parentFolder.substring(0, parentFolder.lastIndexOf('/'));
+				parentFolder = parentFolder + "/";
+				loadItemsFromPath(parentFolder, deviceHwId);
+			break;
+			case "Back2":
+				loadItemsFromPath(itemUrl, deviceHwId);
+			break;
+			case "Next":
+				displayNextGridPage();
+			break;
+			}
+		};
+
+	var toolsDiv = document.createElement('div');
+	toolsDiv.className = "folderToolsHidden";
+	
+	var formElement2 = document.createElement('div');
+	formElement2.className = "folderTools";
+	var selectElement = document.createElement('select');
+	selectElement.id = itemName;
+	var c = document.createElement("option");
+	c.text = "choose drive";
+	selectElement.options.add(c, 1);
+	for (var i=0; i < USBdevices.length; i++)
+	{
+		var c = document.createElement("option");
+		c.text = USBdevices[i].name;
+		c.value = USBdevices[i].path;
+		c.id = USBdevices[i].HwId;
+		selectElement.options.add(c, 1);
+	}
+	
+	var backupElement = document.createElement('div');
+	backupElement.innerHTML = "Backup";
+	backupElement.onclick = function() {
+		var targetDevice = document.getElementById(itemName);
+		backupFolder(itemUrl, deviceHwId, targetDevice.options[ targetDevice.selectedIndex ].id);
+		};
+
+	var toolsButton = document.createElement('div');
+	toolsButton.className = "folderButton";
+	toolsButton.innerHTML = "...";
+	toolsButton.onclick = function() { toolsDiv.className = "folderTools"; };
+
+	folderElement.appendChild(contentElement);
+	folderElement.appendChild(toolsDiv);
+	folderElement.appendChild(toolsButton);
+	
+	toolsDiv.appendChild(selectElement);
+	toolsDiv.appendChild(backupElement);
+	toolsDiv.appendChild(formElement2);
+
+	var container = document.getElementById("gridItems");
+	
+	switch(type) {
+			case "All":
+				container.insertBefore(folderElement, container.childNodes[0]);
+			break;
+			case "Back":
+			case "Back2":
+				container.insertBefore(folderElement, container.childNodes[0]);
+			break;
+			default:
+				container.appendChild(folderElement);
+			break;
+			}
+}
+
+function uploadFiles(itemUrl, deviceHwId)
+{
+	var divElement = document.createElement('div');
+	
+	var formElement = document.createElement('form');
+	formElement.id = "uploadForm";
+	formElement.enctype="multipart/form-data";
+	formElement.action="./uploadmultiple.php";
+	formElement.method="post";
+	
+	var input1Element = document.createElement('input');
+	input1Element.type="hidden";
+	input1Element.name="upload_max_filesize";
+	input1Element.value="30000000000000000000000";
+	
+	var input2Element = document.createElement('input');
+	input2Element.type="hidden";
+	input2Element.name="transfertType";
+	input2Element.value="backup";
+	
+	var input3Element = document.createElement('input');
+	input3Element.type="hidden";
+	input3Element.name="folderPath";
+	input3Element.value=itemUrl;
+	
+	var input4Element = document.createElement('input');
+	input4Element.id="backupDeviceId";
+	input4Element.type="hidden";
+	input4Element.name="backupDeviceId";
+	input4Element.value=deviceHwId;
+	
+	var input5Element = document.createElement('input');
+	input5Element.name="userfiles[]";
+	input5Element.type="file";
+	input5Element.multiple = true;
+	
+	var input6Element = document.createElement('input');
+	input6Element.type="submit";
+	input6Element.value="Envoyer";
+	
+	formElement.appendChild(input1Element);
+	formElement.appendChild(input2Element);
+	formElement.appendChild(input3Element);
+	formElement.appendChild(input4Element);
+	formElement.appendChild(input5Element);
+	formElement.appendChild(input6Element);
+	
+	divElement.appendChild(formElement);
+	
+	var container = document.getElementById("uploadForm");
+	container.appendChild(divElement);
+}
+
+function addSmartBrowseFolder(itemName, itemUrl, deviceHwId, type)
+{
+	var folderObj = new Object();
+	folderObj["type"] = "folder";
+	folderObj["name"] = itemName;
+	folderObj["itemUrl"] = itemUrl;
+	folderObj["HwId"] = deviceHwId;
+	browseItems.push(folderObj);
+	
+	var folderElement = document.createElement('div');
+	folderElement.className = "browseItem";
+
+	var contentElement = document.createElement('div');
+	contentElement.className = "folderContent";
+	contentElement.innerHTML = itemName;
+	contentElement.onclick = function() { 
+		switch(type) {
+			case "month":
+				loadItemsFromSmartFolder(type, itemName);
+				break;
+			}
+		};
+
+	var toolsDiv = document.createElement('div');
+	toolsDiv.className = "folderToolsHidden";
+	
+	var formElement2 = document.createElement('div');
+	formElement2.className = "folderTools";
+	var selectElement = document.createElement('select');
+	selectElement.id = itemName;
+	var c = document.createElement("option");
+	c.text = "choose drive";
+	selectElement.options.add(c, 1);
+	for (var i=0; i < USBdevices.length; i++)
+	{
+		var c = document.createElement("option");
+		c.text = USBdevices[i].name;
+		c.value = USBdevices[i].path;
+		c.id = USBdevices[i].HwId;
+		selectElement.options.add(c, 1);
+	}
+	
+	var backupElement = document.createElement('div');
+	backupElement.innerHTML = "Backup";
+	backupElement.onclick = function() {
+		var targetDevice = document.getElementById(itemName);
+		backupFolder(itemUrl, deviceHwId, targetDevice.options[ targetDevice.selectedIndex ].id);
+		};
+
+	var toolsButton = document.createElement('div');
+	toolsButton.className = "folderButton";
+	toolsButton.innerHTML = "...";
+	toolsButton.onclick = function() { toolsDiv.className = "folderTools"; };
+
+	folderElement.appendChild(contentElement);
+	folderElement.appendChild(toolsDiv);
+	folderElement.appendChild(toolsButton);
+	
+	toolsDiv.appendChild(selectElement);
+	toolsDiv.appendChild(backupElement);
+	toolsDiv.appendChild(formElement2);
+
+	var container = document.getElementById("gridItems");
+	
+	switch(type) {
+			default:
+				container.appendChild(folderElement);
+			break;
+			}
+}
+
+function addSmartBrowseItem(type, thumbUrl, title, deviceId, imageUrl, count, value)
+{
+	var smartFolderElement = document.createElement('div');
+	smartFolderElement.className = "smartBrowseItem";
+	smartFolderElement.innerHTML = title;
+	smartFolderElement.onclick = function() { loadItemsFromSmartFolder(type, title, value); };
+
+	var imgElement = document.createElement('img');
+	imgElement.className = "fileImg";
+	imgElement.onload = function() {displayNextImage() };
+	imgElement.onerror = function() {displayNextImage() };
+
+	imgToLoad.push([deviceId, imageUrl, imgElement]);
+
+	var contentElement = document.createElement('div');
+	//contentElement.className = "folderContent";
+	contentElement.innerHTML = count;
+	//contentElement.onclick = function() { loadItemsFromSmartFolder(Title); };
+
+	smartFolderElement.appendChild(imgElement);
+	smartFolderElement.appendChild(contentElement);
+
+	var container = document.getElementById("gridItems");
+    container.appendChild(smartFolderElement);
+}
+
+function loadItemsFromSmartFolder(type, param, extra)
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	browseItems = [];
+	
+	var xhr = new XMLHttpRequest();
+    
+    switch(type) {
+    	
+    	case "tag":
+        xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getImagesByTags&tags='+extra+'&params=online');
+        
+        xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	//"ThumbUrl":"http://sunnyv1.local/ressources/thumbs/2/2032.jpg","Title":"2012","DeviceId":"543","ImageUrl":"/_nicolas/images/maurice/DSC00070.JPG","Count":"102"
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addBrowseItem(jsonObj[i].localPath, "", jsonObj[i].Name, jsonObj[i].remoteURL, true);
+			}
+			
+			displayMonths(param);
+		} 
+	    
+	    displayNextImage();
+	    
+	    
+	}, false);
+	
+        break;
+        
+    case "year":
+        xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getImagesByYear&year='+param+'&params=online');
+        
+        xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	//"ThumbUrl":"http://sunnyv1.local/ressources/thumbs/2/2032.jpg","Title":"2012","DeviceId":"543","ImageUrl":"/_nicolas/images/maurice/DSC00070.JPG","Count":"102"
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addBrowseItem(jsonObj[i].localPath, "", jsonObj[i].Name, jsonObj[i].remoteURL, true);
+			}
+			
+			displayMonths(param);
+		} 
+	    
+	    displayNextImage();
+	    
+	    
+	}, false);
+	
+        break;
+    case "month":
+    	var year = param.split("-")[0];
+    	var month = param.split("-")[1];
+        xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getImagesByMonth&year='+year+'&month='+month+'&params=online');
+        
+        xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	//"ThumbUrl":"http://sunnyv1.local/ressources/thumbs/2/2032.jpg","Title":"2012","DeviceId":"543","ImageUrl":"/_nicolas/images/maurice/DSC00070.JPG","Count":"102"
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addBrowseItem(jsonObj[i].localPath, "", jsonObj[i].Name, jsonObj[i].remoteURL, true);
+			}
+	    }
+	    
+	    displayNextImage();
+	    
+	}, false);
+	
+        break;
+        case "places":
+        xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getImagesByLocations&locations='+param);
+        
+        xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	//"ThumbUrl":"http://sunnyv1.local/ressources/thumbs/2/2032.jpg","Title":"2012","DeviceId":"543","ImageUrl":"/_nicolas/images/maurice/DSC00070.JPG","Count":"102"
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addBrowseItem(jsonObj[i].localPath, "", jsonObj[i].Name, jsonObj[i].remoteURL, true);
+			}
+	    }
+	    
+	    displayNextImage();
+	    
+	}, false);
+	
+        break;
+        
+    case "device":
+        xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getYears&params=online');
+        
+        xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	//"ThumbUrl":"http://sunnyv1.local/ressources/thumbs/2/2032.jpg","Title":"2012","DeviceId":"543","ImageUrl":"/_nicolas/images/maurice/DSC00070.JPG","Count":"102"
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addBrowseItem(jsonObj[i].localPath, "", jsonObj[i].Name, jsonObj[i].remoteURL, true);
+			}
+	    }
+	    
+	    displayNextImage();
+	    
+	}, false);
+        break;
+    case "sequences":
+	    	loadSequenceItems(type, param);
+       
+        break;
+	}
+    
+    xhr.send(null);
+}
+
+function loadSequenceItems(type, param)
+{
+	var container = document.getElementById("gridItems");
+    while (container.hasChildNodes()) {  
+    container.removeChild(container.firstChild);
+	}
+	
+	browseItems = [];
+	
+	var xhr = new XMLHttpRequest();
+    
+    switch(type) {
+    case "sequences":
+    //xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getSequences&imageId='+param);
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getNearDateDuplicates&imageId='+param);
+        break;
+	}
+    
+    xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	//"ThumbUrl":"http://sunnyv1.local/ressources/thumbs/2/2032.jpg","Title":"2012","DeviceId":"543","ImageUrl":"/_nicolas/images/maurice/DSC00070.JPG","Count":"102"
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addBrowseItem(jsonObj[i].ImageUrl, jsonObj[i].DeviceId, jsonObj[i].Name, jsonObj[i].remoteURL, true);
+			}
+	    }
+	    
+	    displayNextImage();
+	    
+	}, false);
+    xhr.send(null);
+}
+
+function scanUSBdevice(deviceId)
+{
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=scanUSBDevice&deviceId='+deviceId);
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+</script>
+<script src="https://apis.google.com/js/platform.js" async defer></script>
+<div class="main">
+<div id="shareGDrive"></div>
+<div class="main">
+<div id="statusBar" class="statusBar"></div>
+<div id="navBar" class="navBar">
+	<div id="homeButton" class="navBarButton"><a href="./index.html">Home</a></div>
+</div>
+<div id="tools" class="tools">
+</div>
+<div id="gridItems" class="grid"></div>
+</div>
+</div>
+<script>
+initNavbar();
+initToolbar();
+mountUSB();
+//addBoxMenuItem();
+loadUsbDevices();
+//loadNetworkDevices();
+//loadBoxItems();
+</script>
+</body>
+</html>

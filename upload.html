@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+  <title>Your page title here :)</title>
+  <meta name="description" content="SunnyV1">
+  <meta name="author" content="SunnyBox">
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- FONT
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="stylesheet" href="css/normalize.css">
+  <link rel="stylesheet" href="css/skeleton.css">
+
+</head>
+<body>
+<script>
+var USBdevices = new Array();
+var imgToLoad = new Array();
+var imgSelected = new Array();
+
+function loadUsbDevices()
+{
+	USBdevices = new Array();
+	
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getAvailableUsbDevices');
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				var USBObj = new Object();
+				USBObj["name"] = jsonObj[i].Name;
+				USBObj["path"] = jsonObj[i].MountPoint;
+				USBObj["HwId"] = jsonObj[i].HwId;
+				USBObj["FriendlyType"] = jsonObj[i].FriendlyType;
+				USBdevices.push(USBObj);
+				}
+			
+			updateBackupOptions();
+	    }
+
+	}, false);
+    xhr.send(null);
+    
+    
+}
+
+function updateBackupOptions()
+{
+	var selectElement = document.getElementById("selectBackup");
+	
+	selectElement.onchange = function() {
+			var inputHidden = document.getElementById("backupDeviceId");
+			inputHidden.value = this.value;
+			};
+	
+	var i;
+    for(i = selectElement.options.length - 1 ; i >= 1 ; i--)
+    {
+        selectElement.remove(i);
+    }
+	for (var i=0; i < USBdevices.length; i++)
+	{
+		var c = document.createElement("option");
+		c.text = USBdevices[i].name;
+		c.value = USBdevices[i].HwId;
+		selectElement.options.add(c, 1)
+	}
+	
+	var inputHidden = document.getElementById("backupDeviceId");
+	inputHidden.value = USBdevices[0].HwId;
+}
+
+function getDeviceId()
+{
+	
+	if(navigator.platform.indexOf("Windows")!=-1)
+	{
+		var deviceType = "4";
+	}
+	else if(navigator.platform.indexOf("Mac")!=-1)
+	{
+		var deviceType = "3";
+	}
+	else if(navigator.platform.indexOf("iOS")!=-1)
+	{
+		var deviceType = "8";
+	}
+	else if(navigator.platform.indexOf("Android")!=-1)
+	{
+		var deviceType = "9";
+	}
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getDevice');
+    xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	var deviceId = xhr.responseText;
+	    	if(deviceId == "KO")
+	    	{
+	    		//ADD DEVICE
+	    		//xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=addDevice&deviceName=&deviceType='+deviceType+'&deviceScreenWidth='+screen.width+'&deviceScreenHeight='+screen.height);
+	    	}
+	    }
+	}, false);
+    xhr.send(null);
+}
+
+getDeviceId();
+
+function backupFile($toSelectDevice, $filesArr)
+{
+	var imgElement = $filesArr.shift();
+	//alert("IMG ELEMENT"+imgElement);
+	if(imgElement)
+	{
+		var xhr = new XMLHttpRequest();
+	    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=backupFile&FILEURL='+imgElement[2]+'&FROMHWID='+imgElement[1]+'&TOHWID='+$toSelectDevice);
+	    xhr.addEventListener('readystatechange', function() {
+		    if (xhr.readyState == 4 && xhr.status == 200)
+		    {
+		    	//alert($filesArr.length);
+		    	var divPath = "select-"+imgElement[0];
+				document.getElementById(divPath).className = "selectButtonUnchecked";
+				
+				if(imgSelected.length > 0)
+				{
+					var saveBt = document.getElementById("saveButton");
+					saveBt.className = "toolButton";
+				}
+				else
+				{
+					var saveBt = document.getElementById("saveButton");
+					saveBt.className = "toolButtonHidden";
+				}
+		
+		        backupFile($toSelectDevice, $filesArr);
+		    }
+		}, false);
+	    xhr.send(null);
+	}
+	
+}
+
+function backupFolder($fromFolder, $toSelectID)
+{
+	var fromFolder = $fromFolder;
+	var toFolder = document.getElementById($toSelectID);
+	toFolder = toFolder.options[toFolder.selectedIndex].value;
+	
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=backupFolder&FROM='+fromFolder+'&TO='+toFolder);
+    xhr.addEventListener('readystatechange', function() {
+	    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        //alert(xhr.responseText);
+	    }
+	}, false);
+    xhr.send(null);
+}
+
+loadUsbDevices();
+</script>
+<!-- Le type d'encodage des données, enctype, DOIT être spécifié comme ce qui suit -->
+<form id="uploadForm" enctype="multipart/form-data" action="./uploadmultiple.php" method="post">
+  <!-- MAX_FILE_SIZE doit précéder le champ input de type file -->
+  <input type="hidden" name="upload_max_filesize" value="30000000000000000000000" />
+  <input type="hidden" name="transfertType" value="backup" />
+  <input type="hidden" name="folderPath" value="" />
+  <input id="backupDeviceId" type="hidden" name="backupDeviceId" value="" />
+  
+  <!-- Le nom de l'élément input détermine le nom dans le tableau $_FILES -->
+  <input name="userfiles[]" type="file" multiple/><br><br>
+  <!--<input name="userfile[]" type="file" />
+  <input name="userfile[]" type="file" />-->
+  <input type="submit" value="Envoyer" />
+</form>
+<form action="./index.html">
+<input type="submit" value="Retour accueil"/>
+</form>
+<div>
+	<select id="selectBackup"></select>
+</div>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+  <title>Your page title here :)</title>
+  <meta name="description" content="SunnyV1">
+  <meta name="author" content="SunnyBox">
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- FONT
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="stylesheet" href="css/normalize.css">
+  <link rel="stylesheet" href="css/skeleton.css">
+
+</head>
+<script>
+
+var networkDevices = new Array();
+
+function loadWifiAP()
+{
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getWifiAp');
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				buildOptions(jsonObj[i].Name);
+			}
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+
+function loadNetworkDevices()
+{
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getAvailableNetworkDevices');
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				networkDevices[i] = [jsonObj[i].Name, jsonObj[i].MountPoint, jsonObj[i].Type, jsonObj[i].FriendlyType, jsonObj[i].HwId];
+			}
+			displayNetworkDevices();
+	    }
+
+	}, false);
+    xhr.send(null);
+    
+    
+}
+
+function displayNetworkDevices()
+{
+	for (var i=0; i < networkDevices.length; i++)
+	{
+		var element = document.createElement('div');
+		element.id = i;
+		element.innerHTML = networkDevices[i][0];
+		element.onclick = function() {
+			addRemoteDevice(this.id);
+		};
+		document.getElementById("networkDevices").appendChild(element);
+	}
+	
+	//div1Element.className = "one-third column feature";
+}
+
+function addRemoteDevice(divId)
+{
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=addRemoteDevice&hwId='+networkDevices[divId][4]+"&deviceName="+networkDevices[divId][0]+"&deviceType="+networkDevices[divId][2]);
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	        
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+
+function turnOnIddle()
+{
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=iddle&mode=ON');
+    xhr.send(null);
+}
+
+function turnOffIddle()
+{
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=iddle&mode=OFF');
+    xhr.send(null);
+}
+
+function shutDown()
+{
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=shutDown');
+    xhr.send(null);
+}
+
+function buildOptions(name)
+{
+	var x = document.getElementById("wifiAP");
+	var c = document.createElement("option");
+	c.text = name;
+	x.options.add(c, 1);
+}
+
+function loadApIp()
+{
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getIpOnAP');
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+			
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+function loadLocalIp()
+{
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getLocalIP');
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+			
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+
+function addAPIP(ip)
+{
+	var div1Element = document.createElement('div');
+	div1Element.className = "one-third column feature";
+	
+	var form1Element = document.createElement('form');
+	var input1Element = document.createElement('input');
+	input1Element.type = "button";
+	input1Element.value = level;
+	
+	form1Element.appendChild(input1Element);
+	div1Element.appendChild(form1Element);
+
+	var container1 = document.getElementById("batteryLevel");
+    container1.appendChild(div1Element);
+}
+</script>
+<body>
+<!-- Le type d'encodage des données, enctype, DOIT être spécifié comme ce qui suit -->
+<div id="networkDevices">
+	
+</div>
+<div>
+<form enctype="multipart/form-data" action="./sunnyweb.php" method="get">
+  <!-- MAX_FILE_SIZE doit précéder le champ input de type file -->
+  <input type="hidden" name="action" value="setNetwork" />
+  <input type="hidden" name="mode" value="Local" />
+  <!-- Le nom de l'élément input détermine le nom dans le tableau $_FILES -->
+  <select id="wifiAP" name="name">
+  	<option>wifi2</option>
+  </select>
+  <input name="pass" type="text">
+  <input type="submit" value="OK" />
+</form>
+</div>
+<div>
+<input id="iddleOn" type="button" value="Turn ON Low Energy Mode" onclick="turnOnIddle()"/>
+</div>
+<div>
+<input id="iddleOff" type="button" value="Turn OFF Low Energy Mode" onclick="turnOffIddle()"/>
+</div>
+<div>
+<input id="shutDown" type="button" value="ShutDown" onclick="shutDown()"/>
+</div>
+<div>
+	<form action="./index.html">
+<input type="submit" value="Retour accueil"/>
+</form>
+</div>
+</body>
+<script>
+loadNetworkDevices();
+loadWifiAP();
+</script>
+</html>

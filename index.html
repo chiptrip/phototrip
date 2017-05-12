@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+  <title>Your page title here :)</title>
+  <meta name="description" content="SunnyV1">
+  <meta name="author" content="SunnyBox">
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- FONT
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="stylesheet" href="css/normalize.css">
+  <link rel="stylesheet" href="css/skeleton.css">
+
+</head>
+<script>
+function loadBatteryLevel()
+{
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getBatteryLevel');
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+			addBatteryLevel(xhr.responseText);
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+
+function addBatteryLevel(level)
+{
+	var div1Element = document.createElement('div');
+	div1Element.className = "one-third column feature";
+	
+	var form1Element = document.createElement('form');
+	var input1Element = document.createElement('input');
+	input1Element.type = "button";
+	input1Element.value = level;
+	
+	form1Element.appendChild(input1Element);
+	div1Element.appendChild(form1Element);
+
+	var container1 = document.getElementById("batteryLevel");
+    container1.appendChild(div1Element);
+}
+
+function mountUSB() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/usbManager.php');
+    xhr.send(null);
+}
+
+function loadUSBDevices()
+{
+	var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://sunnyv1.local/sunnyweb.php?action=getAvailableUsbDevices');
+    xhr.addEventListener('readystatechange', function() {
+    if (xhr.readyState == 4 && xhr.status == 200)
+	    {
+	    	var jsonObj = JSON.parse(xhr.responseText);
+			for (var i=0; i < jsonObj.length; i++)
+			{
+				addUSBDevices(jsonObj[i].Name, jsonObj[i].FreeDisk);
+			}
+	    }
+
+	}, false);
+    xhr.send(null);
+}
+
+function addUSBDevices(name, freedisk)
+{
+	var div1Element = document.createElement('div');
+	div1Element.className = "one-third column feature";
+	
+	var form1Element = document.createElement('form');
+	var input1Element = document.createElement('input');
+	input1Element.type = "button";
+	input1Element.value = name+" "+freedisk;
+	
+	form1Element.appendChild(input1Element);
+	div1Element.appendChild(form1Element);
+
+	var container1 = document.getElementById("USBName");
+    container1.appendChild(div1Element);
+}
+mountUSB();
+loadBatteryLevel();
+loadUSBDevices();
+</script>
+<body>
+<div id="batteryLevel" class="container">
+<div id="USBName" class="container">
+<div class="container">
+    <div class="one-third column feature">
+             
+        <h2><a href="./upload.html">Upload</a></h2>
+        
+    </div>
+     
+    <div class="one-third column feature">
+         
+        <h2>Scan</h2>
+    </div>
+     
+    <div class="one-third column feature">
+         
+        <h2><a href="./settings.html">Setup</a></h2>
+    </div>
+</div>
+<div class="container">
+    <div class="one-third column feature">
+             
+        <h2><a href="./browse.html">Browse</a></h2>
+    </div>
+     
+    <div class="one-third column feature">
+         
+        <h2>Diapo</h2>
+    </div>
+     
+    <div class="one-third column feature">
+         
+        <h2>Books</h2>
+    </div>
+</div>
+</body>
+</html>
